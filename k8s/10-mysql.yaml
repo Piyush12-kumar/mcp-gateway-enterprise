@@ -1,0 +1,163 @@
+# =============================================================================
+# MCP Gateway - MySQL StatefulSet
+# =============================================================================
+# Apply second: kubectl apply -f 10-mysql.yaml
+# StatefulSet provides stable network identity and persistent storage
+# =============================================================================
+
+---
+# Headless Service for StatefulSet DNS
+apiVersion: v1
+kind: Service
+metadata:
+  name: mysql
+  namespace: mcp-gateway
+  labels:
+    app: mysql
+spec:
+  ports:
+    - port: 3306
+      targetPort: 3306
+      name: mysql
+  clusterIP: None  # Headless service for StatefulSet
+  selector:
+    app: mysql
+
+---
+# MySQL StatefulSet with persistent storage
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+  namespace: mcp-gateway
+  labels:
+    app: mysql
+spec:
+  serviceName: mysql
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8.0
+          ports:
+            - containerPort: 3306
+              name: mysql
+          env:
+            - name: MYSQL_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-gateway-secrets
+                  key: MYSQL_ROOT_PASSWORD
+            - name: MYSQL_DATABASE
+              value: "mcp_gateway"
+            - name: MYSQL_USER
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-gateway-secrets
+                  key: SPRING_DATASOURCE_USERNAME
+            - name: MYSQL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-gateway-secrets
+                  key: SPRING_DATASOURCE_PASSWORD
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "500m"
+          volumeMounts:
+            - name: mysql-data
+              mountPath: /var/lib/mysql
+            - name: mysql-initdb
+              mountPath: /docker-entrypoint-initdb.d
+          livenessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - localhost
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            exec:
+              command:
+                - mysqladmin
+                - ping
+                - -h
+                - localhost
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+      volumes:
+        - name: mysql-initdb
+          configMap:
+            name: mysql-initdb-config
+  # Persistent Volume Claim template
+  volumeClaimTemplates:
+    - metadata:
+        name: mysql-data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: 5Gi
+        # Uncomment and specify storageClassName for cloud providers
+        # storageClassName: standard
+
+---
+# ConfigMap for database initialization scripts
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: mysql-initdb-config
+  namespace: mcp-gateway
+  labels:
+    app: mysql
+data:
+  init.sql: |
+    -- Grant all privileges to application user
+    GRANT ALL PRIVILEGES ON mcp_gateway.* TO 'mcpuser'@'%';
+    FLUSH PRIVILEGES;
+    
+    -- Create organizations table
+    CREATE TABLE IF NOT EXISTS organizations (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- Insert default organization
+    INSERT INTO organizations (id, name) VALUES (1, 'Default Organization')
+    ON DUPLICATE KEY UPDATE name = name;
+    
+    -- Create users table
+    CREATE TABLE IF NOT EXISTS users (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(255) NOT NULL UNIQUE,
+        password VARCHAR(255) NOT NULL,
+        email VARCHAR(255),
+        organization_id BIGINT,
+        role VARCHAR(50) DEFAULT 'USER',
+        enabled BOOLEAN DEFAULT TRUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (organization_id) REFERENCES organizations(id)
+    );
+    
+    -- Insert default admin user (password: admin123, BCrypt hashed)
+    INSERT INTO users (id, username, password, email, organization_id, role) VALUES 
+    (1, 'admin', '$2a$10$N9qo8uLOickgx2ZMRZoMy.MqrqQb/SMJvYwHGpXPWIWZxlDf/WZIG', 'admin@mcpgateway.com', 1, 'ADMIN')
+    ON DUPLICATE KEY UPDATE username = username;
+

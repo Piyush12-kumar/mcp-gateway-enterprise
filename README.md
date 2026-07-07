@@ -1,449 +1,391 @@
-# Multi-Tenant Enterprise MCP Gateway
-## Complete Implementation & Deployment Guide
+# 🚀 MCP Gateway - Enterprise Multi-Tenant AI Tool Platform
 
-This is a production-ready prototype for a centralized multi-tenant gateway managing 100+ MCP servers for thousands of users.
+[![Java](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.org/)
+[![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.2.0-brightgreen.svg)](https://spring.io/projects/spring-boot)
+[![MySQL](https://img.shields.io/badge/MySQL-8.0-blue.svg)](https://www.mysql.com/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-2496ED.svg)](https://www.docker.com/)
+[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-### ✨ Key Features
-- **Multi-Tenant Architecture**: Complete organizational isolation with tenant-aware APIs
-- **Enterprise Security**: AES-256-GCM encryption for per-user API keys
-- **Dynamic UI**: Automatic form generation from JSON tool schemas
-- **Global Safety Agent**: Rate-limiting (100 calls/60s per user), comprehensive audit logging
-- **Full-Stack Implementation**: Spring Boot backend, MySQL database, modern responsive frontend
-
-### 🏆 What's Included
-
-#### Backend (Spring Boot 3.2.0)
-- RESTful API with 25+ endpoints
-- Multi-tenant data isolation
-- Encrypted credential vault (VaultService)
-- Global rate limiting & audit logging (SafetyService)
-- Tool schema registry with org-specific optional overrides
-- Comprehensive audit trail with statistics
-- Swagger/OpenAPI documentation
-
-#### Frontend (Modern HTML5 + Vanilla JS)
-- Full-featured dashboard with 5 main sections
-- Real-time organization, user, and tool management
-- Dynamic form generation from tool schemas
-- Tool calling interface with result display
-- Audit log viewer with statistics
-- Responsive design (mobile-friendly)
-
-#### Database (MySQL 8.0)
-- 6 core tables: organizations, users, mcp_servers, tool_schemas, task_audits, and more
-- Optimized indexes for audit queries
-- Foreign key relationships with cascading deletes
-- Support for 100+ MCP servers & 1000+ users per organization
-
-#### Deployment
-- Docker & Docker Compose for one-command deployment
-- Nginx reverse proxy with SSL-ready configuration
-- Health checks and automatic service restart
-- Environment-based configuration
+A production-ready, enterprise-grade gateway for managing **Model Context Protocol (MCP)** servers with complete multi-tenant isolation, advanced security, and cloud-native architecture.
 
 ---
 
-## 🚀 Quick Start (30 seconds)
+## ✨ Key Features
+
+| Category | Features |
+|----------|----------|
+| **🔐 Security** | JWT Authentication, RBAC (3-tier), AES-256-GCM Encryption |
+| **⚡ Resilience** | Circuit Breaker, Retry with Backoff, Rate Limiting |
+| **📊 Observability** | Prometheus Metrics, Comprehensive Audit Logging, Usage Metering |
+| **🚀 Scalability** | Caffeine Caching, Pagination, Kafka Event Streaming |
+| **🐳 Infrastructure** | Docker Multi-Stage Build, Kubernetes (HPA), GitHub Actions CI |
+
+---
+
+## 📋 Table of Contents
+
+- [Quick Start](#-quick-start)
+- [Architecture](#-architecture)
+- [API Endpoints](#-api-endpoints)
+- [Security](#-security)
+- [Configuration](#️-configuration)
+- [Deployment](#-deployment)
+- [Testing](#-testing)
+- [Project Structure](#-project-structure)
+- [Contributing](#-contributing)
+
+---
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Docker Desktop (v20.10+)
+- OR Java 17+ and Maven 3.8+ (for local development)
 
 ### Option 1: Docker (Recommended)
 
 ```bash
-cd "D:\InternShip ESkill"
+# Clone the repository
+git clone https://github.com/YOUR_USERNAME/mcp-gateway.git
+cd mcp-gateway
 
-# Start all services
-docker-compose up -d
+# Start all services (MySQL + Backend + Frontend)
+docker compose up -d
 
-# Wait 10-15 seconds for MySQL to initialize
-
-# Access:
-# - Frontend: http://localhost
+# Wait 30 seconds for initialization, then access:
+# - Frontend Dashboard: http://localhost
 # - API: http://localhost:8080
-# - Swagger: http://localhost:8080/swagger-ui.html
+# - Swagger UI: http://localhost:8080/swagger-ui.html
 ```
 
 ### Option 2: Local Development
 
 ```bash
-# 1. Prerequisites: Java 17+, Maven, MySQL 8.0
+# 1. Start MySQL
+docker run -d --name mysql -e MYSQL_ROOT_PASSWORD=root -e MYSQL_DATABASE=mcp_gateway -p 3306:3306 mysql:8.0
 
-# 2. Create database
-mysql -u root -p
-CREATE DATABASE mcp_gateway CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-EXIT;
-
-# 3. Start backend
+# 2. Build and run backend
 cd backend-spring
-mvn clean package
-$env:MCP_GATEWAY_MASTER_KEY = "YWJjZGVmZ2hpamtsbW5vcHFyc3R1dnd4eXoxMjM0NTY="  # Base64 32-byte key
-mvn spring-boot:run
+mvn clean package -DskipTests
+java -jar target/*.jar
 
-# 4. Access frontend
-# Open frontend/index.html in browser
-# Or start an HTTP server: python -m http.server 8000 in frontend/
+# 3. Open frontend/index.html in browser
+```
 
-# 5. Access Swagger UI
-# http://localhost:8080/swagger-ui.html
+### Default Login
+
+| Username | Password | Role |
+|----------|----------|------|
+| `admin` | `admin123` | ADMIN |
+| `orgadmin` | `orgadmin123` | ORG_ADMIN |
+| `john.doe` | `password123` | USER |
+
+---
+
+## 🏗 Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              MCP Gateway                                     │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌──────────────┐    ┌─────────────────────────────────────────────────┐   │
+│   │   Frontend   │───▶│              Spring Boot Backend               │   │
+│   │   (Nginx)    │    │  ┌─────────────────────────────────────────┐   │   │
+│   └──────────────┘    │  │  Security Layer (JWT + RBAC)            │   │   │
+│                       │  └─────────────────────────────────────────┘   │   │
+│                       │  ┌─────────────────────────────────────────┐   │   │
+│                       │  │  Rate Limiter + Circuit Breaker         │   │   │
+│                       │  └─────────────────────────────────────────┘   │   │
+│                       │  ┌─────────────────────────────────────────┐   │   │
+│                       │  │  MCP Proxy (JSON-RPC 2.0)               │───┼──▶ MCP Servers
+│                       │  └─────────────────────────────────────────┘   │   │
+│                       │  ┌───────────┐  ┌───────────┐  ┌───────────┐   │   │
+│                       │  │  MySQL    │  │  Redis    │  │  Kafka    │   │   │
+│                       │  │  (Data)   │  │  (Cache)  │  │  (Events) │   │   │
+│                       │  └───────────┘  └───────────┘  └───────────┘   │   │
+│                       └─────────────────────────────────────────────────┘   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Multi-Tenant Isolation
+
+```
+Organization A                    Organization B
+┌─────────────────────┐          ┌─────────────────────┐
+│  Users: A1, A2, A3  │          │  Users: B1, B2      │
+│  Servers: S1, S2    │          │  Servers: S3, S4    │
+│  Tools: T1, T2      │    ✗     │  Tools: T3          │
+│  Audit: A's logs    │◄───────►│  Audit: B's logs    │
+└─────────────────────┘  Isolated └─────────────────────┘
 ```
 
 ---
 
-## 📚 Complete Documentation
+## 📡 API Endpoints
 
-See `IMPLEMENTATION_GUIDE.md` for:
-- Detailed architecture and design decisions
-- Complete API endpoint reference
-- Security features and implementation details
-- Database schema with all relationships
-- Production recommendations and best practices
-- Configuration options and environment variables
-- Troubleshooting guide
-- Usage examples with curl
+### Authentication
 
----
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/auth/login` | Login and get JWT token |
+| `POST` | `/auth/register` | Register new user |
 
-## 📱 Using the Dashboard
+### Organizations
 
-### 1. Dashboard Tab
-- Set Organization ID and User ID for your session
-- View quick statistics (organizations, users, tools, servers)
-- Authentication headers automatically sent with all requests
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/organizations` | List all organizations |
+| `POST` | `/organizations` | Create organization |
+| `GET` | `/organizations/{id}` | Get organization by ID |
 
-### 2. Tools Tab
-- Create new tool schemas with JSON definitions
-- Browse all available tools
-- Call tools with dynamically generated forms
-- View results in real-time
+### MCP Servers
 
-### 3. Users Tab
-- Create new users assigned to organizations
-- Store encrypted API keys per user
-- Keys are encrypted client-side before transmission
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/mcp/list` | List MCP servers |
+| `POST` | `/mcp/register` | Register MCP server |
+| `GET` | `/mcp/{serverId}/tools` | List tools from server |
 
-### 4. Organizations Tab
-- Create and manage organizations (enterprises/tenants)
-- All users and tools are isolated by organization
-- Supports 100+ organizations
+### Tool Proxy
 
-### 5. Audit Logs Tab
-- View comprehensive audit trail per organization
-- Filter by date range
-- See statistics: total calls, success rate, failures, rate-limited
-- Monitor average execution time
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/proxy/{toolName}/call` | Call a tool (with rate limiting) |
+
+### Audit & Usage
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/audit/logs/org/{id}` | Get audit logs |
+| `GET` | `/audit/stats/org/{id}` | Get statistics |
+| `GET` | `/audit/usage/org/{id}` | Get usage/billing data |
+
+📖 **Full API documentation**: [Swagger UI](http://localhost:8080/swagger-ui.html)
 
 ---
 
-## 🔐 Security Architecture
+## 🔐 Security
 
-### Authentication & Multi-Tenancy
-```
-Request Headers:
-  X-Org-Id: 1234     # Organization/Tenant ID
-  X-User-Id: 5678    # User ID within that organization
+### JWT Authentication
 
-AuthInterceptor validates headers on every request
-RequestContext stores in ThreadLocal for request lifetime
-All queries automatically filtered by organization_id
+```http
+POST /auth/login
+Content-Type: application/json
+
+{"username": "admin", "password": "admin123"}
 ```
 
-### Encryption (Vault Service)
-```
-Algorithm: AES-256-GCM (Authenticated Encryption)
-Key Source: Environment variable MCP_GATEWAY_MASTER_KEY
-Format: [IV_Length(4) + IV(12 random bytes) + Ciphertext + Auth Tag]
-per-request random IV ensures identical keys encrypt differently
+Response:
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiJ9...",
+  "userId": 1,
+  "organizationId": 1,
+  "role": "ADMIN"
+}
 ```
 
-### Rate Limiting (Safety Service)
+Use token in subsequent requests:
+```http
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 ```
-Policy: 100 tool calls per user per 60-second window
-Implementation: In-memory sliding window deque per user
-Logging: Every call logged with status (SUCCESS/FAILED/RATE_LIMITED)
-Metrics: Execution time, errors, user, organization tracked
+
+### Role-Based Access Control (RBAC)
+
+| Role | Permissions |
+|------|-------------|
+| **ADMIN** | Full access to all organizations |
+| **ORG_ADMIN** | Manage own organization |
+| **USER** | Read-only, can call tools |
+
+### AES-256-GCM Encryption
+
+API keys are encrypted at rest using:
+- **Algorithm**: AES-256-GCM (Authenticated Encryption)
+- **IV**: Random 12-byte per encryption
+- **Authentication Tag**: 128-bit for integrity
+
+---
+
+## ⚙️ Configuration
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SPRING_DATASOURCE_URL` | MySQL connection URL | `jdbc:mysql://mysql:3306/mcp_gateway` |
+| `JWT_SECRET` | JWT signing secret | `mcp-gateway-secret-key` |
+| `AES_MASTER_KEY` | Encryption master key (32 bytes, base64) | Auto-generated |
+| `RATE_LIMIT_CALLS` | Max calls per window | `100` |
+| `RATE_LIMIT_WINDOW_SECONDS` | Rate limit window | `60` |
+| `FEATURES_REDIS_ENABLED` | Enable Redis rate limiting | `false` |
+| `FEATURES_KAFKA_ENABLED` | Enable Kafka events | `false` |
+
+### application.properties
+
+```properties
+# Server
+server.port=8080
+
+# Database
+spring.datasource.url=jdbc:mysql://localhost:3306/mcp_gateway
+spring.jpa.hibernate.ddl-auto=update
+
+# Rate Limiting
+rate.limit.calls=100
+rate.limit.window-seconds=60
+
+# Circuit Breaker
+resilience4j.circuitbreaker.instances.mcpProxy.sliding-window-size=10
+resilience4j.circuitbreaker.instances.mcpProxy.failure-rate-threshold=50
 ```
 
 ---
 
-## 🗄️ Database Schema (Quick Reference)
+## 🐳 Deployment
 
-```sql
--- Organizations: Top-level tenants
-organizations
-  ├─ id: PK
-  └─ name: UNIQUE
+### Docker Compose
 
--- Users: Belong to one organization
-users
-  ├─ id: PK
-  ├─ username: UNIQUE
-  ├─ encrypted_api_key: BLOB (AES-GCM encrypted)
-  └─ organization_id: FK → organizations
-
--- MCP Servers: Register servers per org
-mcp_servers
-  ├─ id: PK
-  ├─ name, baseUrl
-  └─ organization_id: FK → organizations
-
--- Tool Schemas: Reusable tool definitions
-tool_schemas
-  ├─ id: PK
-  ├─ tool_name: UNIQUE
-  ├─ title, description
-  ├─ schema_json: LONGTEXT (JSON form definition)
-  ├─ organization_id: FK (NULL = global)
-  └─ enabled: BOOLEAN
-
--- Task Audits: Comprehensive call logging
-task_audits
-  ├─ id: PK
-  ├─ user_id, organization_id: FK
-  ├─ tool_name
-  ├─ status: SUCCESS/FAILED/RATE_LIMITED
-  ├─ created_at: DATETIME
-  ├─ execution_time_ms: BIGINT
-  ├─ error_message, request/response payloads
-  └─ INDEXES: (org_id, created_at), (user_id, created_at)
-```
-
----
-
-## 📡 API Examples
-
-### Create Organization
 ```bash
-curl -X POST http://localhost:8080/organizations \
-  -H "Content-Type: application/json" \
-  -d '{"name": "My Company"}'
+# Basic deployment (MySQL + Backend + Frontend)
+docker compose up -d
+
+# Full stack (+ Redis, Kafka, Prometheus, Grafana)
+docker compose --profile full up -d
 ```
 
-### Create User
+### Kubernetes
+
 ```bash
-curl -X POST http://localhost:8080/users \
-  -H "X-Org-Id: 1" \
-  -H "X-User-Id: 1" \
-  -H "Content-Type: application/json" \
-  -d '{"username": "john", "organizationId": 1}'
+# Deploy to Kubernetes
+kubectl apply -f k8s/
+
+# Check status
+kubectl get all -n mcp-gateway
+
+# Access via port-forward
+kubectl port-forward -n mcp-gateway svc/mcp-gateway-backend 8080:8080
 ```
 
-### Store Encrypted API Key
-```bash
-curl -X POST http://localhost:8080/users/1/apikey \
-  -H "X-Org-Id: 1" \
-  -H "X-User-Id: 1" \
-  -H "Content-Type: application/json" \
-  -d '{"api_key": "sk-abc123xyz"}'
-```
+### Health Checks
 
-### Create Tool Schema
-```bash
-curl -X POST http://localhost:8080/schema \
-  -H "X-Org-Id: 1" \
-  -H "X-User-Id: 1" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "toolName": "translate",
-    "title": "Translator",
-    "description": "Translate text",
-    "schemaJson": "{\"fields\":[]}"
-  }'
-```
-
-### Call Tool
-```bash
-curl -X POST http://localhost:8080/proxy/translate/call \
-  -H "X-Org-Id: 1" \
-  -H "X-User-Id: 1" \
-  -H "Content-Type: application/json" \
-  -d '{"text": "Hello", "targetLang": "es"}'
-```
-
-### Get Audit Statistics
-```bash
-curl -X GET http://localhost:8080/audit/stats/org/1 \
-  -H "X-Org-Id: 1" \
-  -H "X-User-Id: 1"
-```
-
-For complete API reference, see `IMPLEMENTATION_GUIDE.md` or visit:
-http://localhost:8080/swagger-ui.html
+| Endpoint | Description |
+|----------|-------------|
+| `/actuator/health` | Application health |
+| `/actuator/health/liveness` | Liveness probe |
+| `/actuator/health/readiness` | Readiness probe |
+| `/actuator/prometheus` | Prometheus metrics |
 
 ---
 
 ## 🧪 Testing
 
-### Unit Tests
+### Run Tests
+
 ```bash
 cd backend-spring
+
+# Unit tests
 mvn test
+
+# Integration tests (requires Docker for Testcontainers)
+mvn verify -P integration-tests
 ```
 
-### Integration Testing
-```bash
-# Run with in-memory H2 database (no MySQL needed)
-mvn test -Dspring.datasource.url=jdbc:h2:mem:testdb
-```
+### Test Coverage
 
-### Manual Testing
-1. Create organization via dashboard
-2. Create users in that organization
-3. Set API keys for users
-4. Call tools and verify audit logs
-5. Check rate limiting at 100+ calls
+| Component | Test Type |
+|-----------|-----------|
+| `VaultService` | Unit tests for encryption/decryption |
+| `SafetyService` | Unit tests for rate limiting |
+| `AuthController` | Integration tests for JWT flow |
+| `AuditController` | Integration tests for logging |
 
 ---
 
-## 📦 Project Structure
+## 📁 Project Structure
 
 ```
-.
-├── frontend/
-│   └── index.html              # Full-featured dashboard
+mcp-gateway/
 ├── backend-spring/
-│   ├── pom.xml                 # Maven dependencies
-│   └── src/main/java/com/mcpgateway/
-│       ├── McpGatewayApplication.java
-│       ├── config/
-│       │   ├── WebConfig.java              # Interceptor registration
-│       │   └── DataInitializer.java        # Sample data seed
-│       ├── controller/
-│       │   ├── UserController.java
-│       │   ├── OrganizationController.java
-│       │   ├── SchemaController.java
-│       │   ├── ProxyController.java
-│       │   └── AuditController.java
-│       ├── model/
-│       │   ├── User.java
-│       │   ├── Organization.java
-│       │   ├── McpServer.java
-│       │   ├── ToolSchema.java
-│       │   └── TaskAudit.java
-│       ├── repository/          # JPA repositories
-│       ├── service/
-│       │   ├── VaultService.java           # AES-256-GCM encryption
-│       │   ├── SafetyService.java          # Rate limiting & audit
-│       │   ├── McpProxyService.java        # Tool call forwarding
-│       │   └── ...
-│       └── web/
-│           ├── AuthInterceptor.java        # Multi-tenant enforcement
-│           └── RequestContext.java         # ThreadLocal auth storage
-├── docker-compose.yml          # Full stack orchestration
-├── Dockerfile                  # Backend container image
-├── nginx.conf                  # Frontend reverse proxy
-├── IMPLEMENTATION_GUIDE.md     # Comprehensive documentation
-├── .env.example                # Configuration template
-└── README.md                   # This file
+│   ├── src/main/java/com/mcpgateway/
+│   │   ├── config/           # Configuration classes
+│   │   ├── controller/       # REST controllers
+│   │   ├── model/            # JPA entities
+│   │   ├── repository/       # Data repositories
+│   │   ├── security/         # JWT, RBAC, filters
+│   │   ├── service/          # Business logic
+│   │   │   ├── ratelimit/    # Rate limiting implementations
+│   │   │   └── events/       # Kafka event publishers
+│   │   └── web/              # Interceptors, context
+│   └── src/test/             # Test classes
+├── frontend/
+│   └── index.html            # Single-page dashboard
+├── k8s/                      # Kubernetes manifests
+├── monitoring/               # Prometheus config
+├── docker-compose.yml        # Docker orchestration
+├── Dockerfile                # Multi-stage build
+└── README.md                 # This file
 ```
 
 ---
 
-## 🔧 Configuration
+## 📊 Monitoring
 
-### Environment Variables
-```bash
-# Encryption master key (Base64-encoded 32-byte AES key)
-MCP_GATEWAY_MASTER_KEY=aGVsbG8gd29ybGQgdGhpcyBpcyBhIHRlc3Qga2V5Zm9yZGV2ZWxvcG1lbnQ=
+### Prometheus Metrics
 
-# Database
-SPRING_DATASOURCE_URL=jdbc:mysql://localhost:3306/mcp_gateway?useSSL=false&serverTimezone=UTC
-SPRING_DATASOURCE_USERNAME=root
-SPRING_DATASOURCE_PASSWORD=secret
+Access metrics at `/actuator/prometheus`:
 
-# Profiles
-SPRING_PROFILES_ACTIVE=dev  # or prod
+```promql
+# Success rate of tool calls
+sum(rate(mcp_tool_calls_total{status="SUCCESS"}[5m])) / 
+sum(rate(mcp_tool_calls_total[5m])) * 100
+
+# Circuit breaker state
+resilience4j_circuitbreaker_state{state="open"} == 1
+
+# Rate limited requests
+rate(mcp_tool_calls_total{status="RATE_LIMITED"}[5m])
 ```
 
-### Generate a Secure Master Key
-```bash
-# Windows PowerShell
-$key = [System.Convert]::ToBase64String((1..32 | ForEach-Object { [byte](Get-Random -Minimum 0 -Maximum 256) }))
-Write-Host $key
+### Grafana Dashboard
 
-# Linux/Mac
-openssl rand -base64 32
-```
+When using `--profile full`, access Grafana at `http://localhost:3001`:
+- Username: `admin`
+- Password: `admin`
 
 ---
 
-## 🐳 Docker Deployment
+## 🤝 Contributing
 
-### One-Command Deploy
-```bash
-docker-compose up -d
-```
-
-### Services Started:
-- **MySQL**: Port 3306 (internal), persistent volume
-- **Backend**: Port 8080 (internal), auto-restart on crash
-- **Frontend/Nginx**: Port 80 (public), SSL-ready
-
-### Health Checks
-```bash
-# Check all services
-docker-compose ps
-
-# View logs
-docker-compose logs -f backend
-docker-compose logs -f mysql
-
-# Stop all
-docker-compose down
-
-# Full cleanup
-docker-compose down -v
-rm -rf mysql_data
-```
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ---
 
-## 🚨 Troubleshooting
+## 📝 License
 
-| Issue | Solution |
-|-------|----------|
-| "MySQL connection refused" | Wait 10-15s for MySQL to start; check `docker-compose logs mysql` |
-| "MCP_GATEWAY_MASTER_KEY not set" | Set env var or use provided default for dev |
-| "Port 8080 already in use" | Change port in docker-compose.yml or `docker ps` to find conflicting service |
-| "Frontend shows 404 errors for API" | Ensure backend is running and nginx proxy is configured correctly |
-| "Rate limiting too strict/loose" | Edit SafetyService.java: maxCalls (100), windowSec (60) |
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 📈 Production Checklist
+## 👨‍💻 Author
 
-- [ ] Use KMS (AWS, Azure, GCP) for master key management
-- [ ] Enable HTTPS/TLS with valid certificates
-- [ ] Implement JWT authentication
-- [ ] Switch to Redis for distributed rate limiting
-- [ ] Set up centralized logging (ELK, Splunk)
-- [ ] Enable database encryption at rest
-- [ ] Configure backups and disaster recovery
-- [ ] Load test with 1000+ concurrent users
-- [ ] Set up monitoring and alerting
-- [ ] Implement API gateway with WAF
-- [ ] Add CORS and CSRF protection
-- [ ] Document SLAs and incident response
+**Piyush Kumar**
+- GitHub: [@Piyush12-kumar](https://github.com/Piyush12-kumar)
+- LinkedIn: [Piyush Kumar](https://www.linkedin.com/in/piyush-kumar-a365342a7/)
 
 ---
 
-## 📞 Support & Resources
+## 🙏 Acknowledgments
 
-- **For API details**: See `backend-spring/README.md`
-- **For complete architecture**: See `IMPLEMENTATION_GUIDE.md`
-- **For code questions**: Check inline comments in source files
-- **For Swagger docs**: Visit http://localhost:8080/swagger-ui.html (after starting backend)
-
----
-
-## 📄 Submission Details
-
-**Project**: Multi-Tenant Enterprise MCP Gateway Assessment  
-**Status**: ✅ Complete & Fully Functional  
-**Delivery Format**: GitHub Repository (or ZIP file)  
-**Documentation**: IMPLEMENTATION_GUIDE.md + inline code comments  
-**Testing**: Unit tests + integration test cases included  
-**Deployment**: Docker + Docker Compose (one-command start)  
-
----
-
-**Last Updated**: June 2026  
-**Version**: 0.1.0 (Production Ready Prototype)  
-**Author**: ESkill Internship Assessment
+- [Spring Boot](https://spring.io/projects/spring-boot) - Backend framework
+- [Resilience4j](https://resilience4j.readme.io/) - Fault tolerance
+- [JJWT](https://github.com/jwtk/jjwt) - JWT implementation
+- [BellSoft Liberica JDK](https://bell-sw.com/libericajdk/) - Container-optimized JDK

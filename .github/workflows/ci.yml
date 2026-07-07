@@ -1,0 +1,36 @@
+name: CI
+
+# Build and test the backend on every push and pull request.
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    branches: [ "**" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest   # GitHub-hosted runners include a Docker daemon (needed by Testcontainers)
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven          # cache ~/.m2 between runs for speed
+
+      - name: Build & run tests (Maven)
+        working-directory: backend-spring
+        run: mvn -B --no-transfer-progress verify
+
+      - name: Upload test reports
+        if: always()            # publish reports even when tests fail
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend-spring/target/surefire-reports/
+          if-no-files-found: ignore
+

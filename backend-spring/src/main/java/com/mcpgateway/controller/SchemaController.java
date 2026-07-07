@@ -2,7 +2,10 @@ package com.mcpgateway.controller;
 
 import com.mcpgateway.model.ToolSchema;
 import com.mcpgateway.repository.ToolSchemaRepository;
+import com.mcpgateway.config.CacheConfig;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -47,6 +50,7 @@ public class SchemaController {
     }
 
     @GetMapping(path = "/all", produces = MediaType.APPLICATION_JSON_VALUE)
+    @Cacheable(CacheConfig.SCHEMAS_CACHE)
     public ResponseEntity<?> getAllSchemas() {
         List<ToolSchema> schemas = schemaRepo.findByEnabled(true);
         return ResponseEntity.ok(schemas.stream().map(s -> Map.of(
@@ -57,6 +61,7 @@ public class SchemaController {
     }
 
     @PostMapping
+    @CacheEvict(value = CacheConfig.SCHEMAS_CACHE, allEntries = true)
     public ResponseEntity<?> createSchema(@RequestBody Map<String, String> body) {
         String toolName = body.get("toolName");
         String title = body.get("title");
@@ -80,6 +85,7 @@ public class SchemaController {
     }
 
     @PutMapping("/{id}")
+    @CacheEvict(value = CacheConfig.SCHEMAS_CACHE, allEntries = true)
     public ResponseEntity<?> updateSchema(@PathVariable Long id, @RequestBody Map<String, String> body) {
         return schemaRepo.findById(id)
             .map(schema -> {
@@ -100,6 +106,7 @@ public class SchemaController {
     }
 
     @DeleteMapping("/{id}")
+    @CacheEvict(value = CacheConfig.SCHEMAS_CACHE, allEntries = true)
     public ResponseEntity<?> deleteSchema(@PathVariable Long id) {
         if (!schemaRepo.existsById(id)) {
             return ResponseEntity.notFound().build();

@@ -14,7 +14,7 @@
 
 ---
 
-## 📦 WHAT YOU HAVE
+## 📦 WHAT WE HAVE
 
 ### Backend (Spring Boot 3.2.0)
 ```

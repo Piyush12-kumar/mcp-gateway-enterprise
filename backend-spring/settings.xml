@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Maven settings used by the Docker build. It mirrors Maven Central to Google's
+  reliable Maven Central mirror (a full, official backup of repo1) so the build
+  succeeds even on flaky connections that corrupt large downloads from the
+  default CDN. Remove this mirror if your network already reaches repo1 fine.
+-->
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://maven.apache.org/SETTINGS/1.0.0 https://maven.apache.org/xsd/settings-1.0.0.xsd">
+  <mirrors>
+    <mirror>
+      <id>google-maven-central</id>
+      <name>Google Maven Central mirror</name>
+      <url>https://maven-central.storage-download.googleapis.com/maven2/</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>

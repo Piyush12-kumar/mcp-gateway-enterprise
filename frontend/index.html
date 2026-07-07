@@ -293,7 +293,7 @@
 <body>
     <div class="container">
         <div class="header">
-            <h1>🚀 MCP Gateway</h1>
+            <h1> MCP Gateway</h1>
             <p>Enterprise Multi-Tenant Management Platform</p>
         </div>
 
@@ -311,16 +311,17 @@
             <p style="color: #666; margin-bottom: 20px;">Welcome to the MCP Gateway Dashboard. Manage your multi-tenant enterprise environment.</p>
 
             <div id="auth-section">
-                <h3>Authentication</h3>
+                <h3>Authentication (JWT Login)</h3>
                 <div class="form-group">
-                    <label>Organization ID (X-Org-Id):</label>
-                    <input type="text" id="org-id" placeholder="e.g., 1" value="1">
+                    <label>Username:</label>
+                    <input type="text" id="login-username" placeholder="admin" value="admin">
                 </div>
                 <div class="form-group">
-                    <label>User ID (X-User-Id):</label>
-                    <input type="text" id="user-id" placeholder="e.g., 1" value="1">
+                    <label>Password:</label>
+                    <input type="password" id="login-password" placeholder="admin123" value="admin123">
                 </div>
-                <button class="btn-primary" onclick="setAuthHeaders()">Save Headers</button>
+                <button class="btn-primary" onclick="login()">Login</button>
+                <button class="btn-secondary" onclick="logout()">Logout</button>
                 <div id="auth-status" style="margin-top: 10px;"></div>
             </div>
 
@@ -473,28 +474,51 @@
     </div>
 
     <script>
-        // Helper functions
+        // ---- Auth state: we now use a JWT (from /auth/login) instead of trusting headers ----
+        const getToken = () => localStorage.getItem('jwt');
+
+        // Build request headers. If logged in, send Authorization: Bearer <jwt>.
         const getHeaders = () => {
-            const orgId = document.getElementById('org-id').value || '1';
-            const userId = document.getElementById('user-id').value || '1';
-            return {
-                'X-Org-Id': orgId,
-                'X-User-Id': userId,
-                'Content-Type': 'application/json'
-            };
+            const headers = { 'Content-Type': 'application/json' };
+            const token = getToken();
+            if (token) headers['Authorization'] = 'Bearer ' + token;
+            return headers;
         };
 
-        const setAuthHeaders = () => {
-            const orgId = document.getElementById('org-id').value;
-            const userId = document.getElementById('user-id').value;
-            if (orgId && userId) {
-                localStorage.setItem('orgId', orgId);
-                localStorage.setItem('userId', userId);
+        // Log in against POST /auth/login, store the JWT, then refresh the UI.
+        const login = async () => {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            if (!username || !password) { alert('Enter username and password'); return; }
+            try {
+                const res = await fetch('/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, password })
+                });
+                if (!res.ok) { throw new Error('Invalid credentials'); }
+                const data = await res.json();
+                localStorage.setItem('jwt', data.token);
+                localStorage.setItem('userId', data.userId);
+                localStorage.setItem('orgId', data.organizationId);
+                localStorage.setItem('roles', JSON.stringify(data.roles || []));
                 document.getElementById('auth-status').innerHTML =
-                    `<div class="alert alert-success">✓ Headers saved! Org: ${orgId}, User: ${userId}</div>`;
-                setTimeout(() => location.reload(), 1500);
+                    `<div class="alert alert-success">✓ Logged in as ${username} (roles: ${(data.roles||[]).join(', ')})</div>`;
+                setTimeout(() => location.reload(), 1000);
+            } catch (e) {
+                document.getElementById('auth-status').innerHTML =
+                    `<div class="alert alert-error">✗ ${e.message}</div>`;
             }
         };
+
+        const logout = () => {
+            localStorage.removeItem('jwt');
+            localStorage.removeItem('roles');
+            location.reload();
+        };
+
+        // Kept for backward compatibility with any old button; now just triggers login.
+        const setAuthHeaders = () => login();
 
         const apiCall = async (method, url, data = null) => {
             const options = {
@@ -505,6 +529,11 @@
 
             try {
                 const response = await fetch(url, options);
+                if (response.status === 401) {
+                    // Token missing/expired -> force re-login.
+                    localStorage.removeItem('jwt');
+                    throw new Error('Not authenticated — please log in again.');
+                }
                 if (!response.ok) {
                     const error = await response.text();
                     throw new Error(`HTTP ${response.status}: ${error}`);
@@ -784,16 +813,39 @@
             }
         };
 
+        const loadUsage = async () => {
+            const orgId = document.getElementById('audit-org-id').value;
+            if (!orgId) { alert('Please enter an organization ID'); return; }
+            try {
+                const u = await apiCall('GET', `/audit/usage/org/${orgId}`);
+                const perTool = Object.entries(u.perTool || {})
+                    .map(([t, c]) => `<tr><td>${t}</td><td>${c}</td></tr>`).join('');
+                document.getElementById('usage-content').innerHTML = `
+                    <p><strong>Total Calls:</strong> ${u.totalCalls}</p>
+                    <p><strong>Monthly Quota:</strong> ${u.monthlyQuota}</p>
+                    <p><strong>Remaining:</strong> ${u.remaining}</p>
+                    <p><strong>Quota Exceeded:</strong> ${u.quotaExceeded}</p>
+                    <table class="table"><thead><tr><th>Tool</th><th>Calls</th></tr></thead>
+                    <tbody>${perTool || '<tr><td colspan="2">No calls yet</td></tr>'}</tbody></table>`;
+                document.getElementById('usage-box').classList.remove('hidden');
+            } catch (error) {
+                alert('Error loading usage: ' + error.message);
+            }
+        };
+
         // Initial load
         window.addEventListener('load', () => {
-            const savedOrgId = localStorage.getItem('orgId');
-            const savedUserId = localStorage.getItem('userId');
-            if (savedOrgId) document.getElementById('org-id').value = savedOrgId;
-            if (savedUserId) document.getElementById('user-id').value = savedUserId;
-
-            loadDashboardStats();
-            loadToolsList();
-            loadOrganizationsList();
+            if (token) {
+                const roles = JSON.parse(localStorage.getItem('roles') || '[]');
+                document.getElementById('auth-status').innerHTML =
+                    `<div class="alert alert-info">Logged in (roles: ${roles.join(', ') || 'none'}). <a href="#" onclick="logout()">Logout</a></div>`;
+                loadDashboardStats();
+                loadToolsList();
+                loadOrganizationsList();
+            } else {
+                document.getElementById('auth-status').innerHTML =
+                    `<div class="alert alert-info">Please log in (default: admin / admin123).</div>`;
+            }
         });
     </script>
 </body>

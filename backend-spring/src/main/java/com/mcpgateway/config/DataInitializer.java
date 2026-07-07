@@ -5,10 +5,11 @@ import com.mcpgateway.repository.*;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Profile;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import java.util.Set;
 
 @Configuration
-@Profile("dev") // Only run in development profile
 public class DataInitializer {
 
     @Bean
@@ -16,7 +17,8 @@ public class DataInitializer {
             OrganizationRepository orgRepo,
             UserRepository userRepo,
             McpServerRepository serverRepo,
-            ToolSchemaRepository toolSchemaRepo) {
+            ToolSchemaRepository toolSchemaRepo,
+            PasswordEncoder passwordEncoder) {
         
         return args -> {
             // Create sample organizations
@@ -34,21 +36,44 @@ public class DataInitializer {
                 orgRepo.save(org3);
             }
 
-            // Create sample users
+            // Create sample users with passwords and roles
             if (userRepo.count() == 0) {
+                // Admin user - full platform access
+                User admin = new User();
+                admin.setUsername("admin");
+                admin.setPasswordHash(passwordEncoder.encode("admin123"));
+                admin.setOrganizationId(1L);
+                admin.setRoles(Set.of(Role.ADMIN));
+                userRepo.save(admin);
+
+                // Org Admin user - manages organization 1
+                User orgAdmin = new User();
+                orgAdmin.setUsername("orgadmin");
+                orgAdmin.setPasswordHash(passwordEncoder.encode("orgadmin123"));
+                orgAdmin.setOrganizationId(1L);
+                orgAdmin.setRoles(Set.of(Role.ORG_ADMIN));
+                userRepo.save(orgAdmin);
+
+                // Regular users
                 User user1 = new User();
                 user1.setUsername("john.doe");
+                user1.setPasswordHash(passwordEncoder.encode("password123"));
                 user1.setOrganizationId(1L);
+                user1.setRoles(Set.of(Role.USER));
                 userRepo.save(user1);
 
                 User user2 = new User();
                 user2.setUsername("jane.smith");
+                user2.setPasswordHash(passwordEncoder.encode("password123"));
                 user2.setOrganizationId(1L);
+                user2.setRoles(Set.of(Role.USER));
                 userRepo.save(user2);
 
                 User user3 = new User();
                 user3.setUsername("bob.wilson");
+                user3.setPasswordHash(passwordEncoder.encode("password123"));
                 user3.setOrganizationId(2L);
+                user3.setRoles(Set.of(Role.USER));
                 userRepo.save(user3);
             }
 

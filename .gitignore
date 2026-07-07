@@ -37,6 +37,12 @@ Thumbs.db
 logs/
 backend-spring/calls.log
 backend-spring/application*.log
+dbuild.log
+dbuild2.log
+jarbuild.log
+
+# Nested build artifacts
+backend-spring/backend-spring/
 
 # Database
 mysql_data/
